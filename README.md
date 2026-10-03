@@ -23,7 +23,7 @@ Multi-line text editor can be easily put as part of your TUI application.
 - Text selection
 - Mouse scrolling
 - Yank support. Paste text deleted with `C-k`, `C-j`, ...
-- Backend agnostic. [crossterm][], [termion][], [termwiz][], and your own backend are all supported
+- Backend agnostic. [crossterm][], [termion][], [termwiz][], [termina][], and your own backend are all supported
 - Multiple textarea widgets in the same screen
 
 [Documentation][doc]
@@ -136,6 +136,14 @@ cargo run --example termwiz --no-default-features --features=termwiz
 
 Minimal usage with [termwiz][] support.
 
+### [`termina`](./examples/termina.rs)
+
+```sh
+cargo run --example termina --no-default-features --features=termina
+```
+
+Minimal usage with [termina][] support.
+
 ## Installation
 
 Add `ratatui-textarea` crate to dependencies in your `Cargo.toml`. This enables crossterm backend support by default.
@@ -154,8 +162,8 @@ ratatui = "*"
 ratatui-textarea = { version = "*", features = ["search"] }
 ```
 
-If you're using ratatui with [termion][] or [termwiz][], enable the `termion` or `termwiz` feature instead of
-`crossterm` feature.
+If you're using ratatui with [termion][], [termwiz][], or [termina][], enable the `termion`, `termwiz`, or `termina`
+feature instead of `crossterm` feature.
 
 ```toml
 [dependencies]
@@ -167,11 +175,15 @@ ratatui-textarea = { version = "*", default-features = false, features = ["termi
 # For termwiz
 ratatui = { version = "*", default-features = false, features = ["termwiz"] }
 ratatui-textarea = { version = "*", default-features = false, features = ["termwiz"] }
+
+# For termina
+ratatui = { version = "*", default-features = false, features = ["termina"] }
+ratatui-textarea = { version = "*", default-features = false, features = ["termina"] }
 ```
 
-In addition to above dependencies, you also need to install [crossterm][] or [termion][] or [termwiz][] to initialize
-your application and to receive key inputs. Please make sure to use the same version that matches the package you
-are using.
+In addition to above dependencies, you also need to install [crossterm][] or [termion][] or [termwiz][] or [termina][]
+to initialize your application and to receive key inputs. Please make sure to use the same version that matches the
+package you are using.
 
 ## Minimal Usage
 
@@ -213,8 +225,8 @@ with underline.
 `&TextArea` reference implements ratatui's `Widget` trait. Render it on every tick of event loop.
 
 `TextArea::input()` receives inputs from tui backends. The method can take key events from backends such as
-`crossterm::event::KeyEvent` or `termion::event::Key` directly if the features are enabled. The method handles default
-key mappings as well.
+`crossterm::event::KeyEvent`, `termion::event::Key`, or `termina::event::KeyEvent` directly if the features are
+enabled. The method handles default key mappings as well.
 
 Default key mappings are as follows:
 
@@ -511,7 +523,7 @@ match read()?.into() {
 
 ratatui allows to make your own backend by implementing the [`ratatui::backend::Backend`][ratatui-backend] trait.
 ratatui-textarea supports it as well. Please disable default features to do so. This avoids adding backend
-crates (crossterm, termion, or termwiz) since you're using your own backend.
+crates (crossterm, termion, termwiz, or termina) since you're using your own backend.
 
 ```toml
 [dependencies]
@@ -697,6 +709,7 @@ ratatui-textarea is distributed under [The MIT License](./LICENSE.txt).
 [crossterm]: https://docs.rs/crossterm/latest/crossterm/
 [termion]: https://docs.rs/termion/latest/termion/
 [termwiz]: https://docs.rs/termwiz/latest/termwiz/
+[termina]: https://docs.rs/termina/latest/termina/
 [ratatui-backend]: https://docs.rs/ratatui/latest/ratatui/backend/trait.Backend.html
 [repo]: https://github.com/ratatui/ratatui-textarea
 [new-issue]: https://github.com/ratatui/ratatui-textarea/issues/new

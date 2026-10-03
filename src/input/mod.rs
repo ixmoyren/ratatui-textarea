@@ -1,5 +1,7 @@
 #[cfg(feature = "crossterm")]
 mod crossterm;
+#[cfg(feature = "termina")]
+mod termina;
 #[cfg(feature = "termion")]
 mod termion;
 #[cfg(feature = "termwiz")]
@@ -66,8 +68,8 @@ pub enum Key {
 
 /// Backend-agnostic key input type.
 ///
-/// When `crossterm`, `termion`, `termwiz` features are enabled, converting respective key input types into this
-/// `Input` type is defined.
+/// When `crossterm`, `termion`, `termwiz`, `termina` features are enabled, converting respective key input types
+/// into this `Input` type is defined.
 /// ```ignore
 /// use ratatui_textarea::{TextArea, Input, Key};
 /// use crossterm::event::{Event, read};

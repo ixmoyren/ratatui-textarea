@@ -246,8 +246,8 @@ impl<'a> TextArea<'a> {
 
     /// Handle a key input with default key mappings. For default key mappings, see the table in
     /// [the module document](./index.html).
-    /// `crossterm`, `termion`, and `termwiz` features enable conversion from their own key event types into
-    /// [`Input`] so this method can take the event values directly.
+    /// `crossterm`, `termion`, `termwiz`, and `termina` features enable conversion from their own key event types
+    /// into [`Input`] so this method can take the event values directly.
     /// This method returns if the input modified text contents or not in the textarea.
     /// ```ignore
     /// use ratatui_textarea::{TextArea, Key, Input};
@@ -272,6 +272,13 @@ impl<'a> TextArea<'a> {
     /// let event: termwiz::input::InputEvent = ...;
     /// textarea.input(event);
     /// if let termwiz::input::InputEvent::Key(key) = event {
+    ///     textarea.input(key);
+    /// }
+    ///
+    /// // Handle termina key events
+    /// let event: termina::event::Event = ...;
+    /// textarea.input(event);
+    /// if let termina::event::Event::Key(key) = event {
     ///     textarea.input(key);
     /// }
     ///
