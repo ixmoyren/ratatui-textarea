@@ -1,6 +1,7 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use ratatui_textarea::{CursorMove, TextArea};
-use tui_textarea_bench::{dummy_terminal, TerminalExt, LOREM};
+use criterion::{criterion_group, criterion_main, Criterion};
+use ratatui_textarea::{CursorMove, DataCursor, TextArea};
+use ratatui_textarea_bench::{dummy_terminal, TerminalExt, LOREM};
+use std::hint::black_box;
 
 #[derive(Clone, Copy)]
 enum Restore {
@@ -34,7 +35,7 @@ fn run(
     moves: &[CursorMove],
     restore: Restore,
     repeat: usize,
-) -> (usize, usize) {
+) -> DataCursor {
     let mut term = dummy_terminal();
 
     let mut prev = textarea.cursor();

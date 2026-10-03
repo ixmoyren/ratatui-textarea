@@ -1,8 +1,9 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use rand::rngs::SmallRng;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 use ratatui_textarea::{CursorMove, Input, Key, TextArea};
-use tui_textarea_bench::{dummy_terminal, TerminalExt, LOREM, SEED};
+use ratatui_textarea_bench::{dummy_terminal, TerminalExt, LOREM, SEED};
+use std::hint::black_box;
 
 #[inline]
 fn append_lorem(repeat: usize) -> usize {
@@ -39,7 +40,7 @@ fn random_lorem(repeat: usize) -> usize {
 
     for _ in 0..repeat {
         for line in LOREM {
-            let row = rng.gen_range(0..textarea.lines().len() as u16);
+            let row = rng.random_range(0..textarea.lines().len() as u16);
             textarea.move_cursor(CursorMove::Jump(row, 0));
             textarea.move_cursor(CursorMove::End);
 
