@@ -1688,7 +1688,7 @@ impl<'a> TextArea<'a> {
                 .filter_map(|(start, end)| {
                     let start = cmp::max(start, wrapped.start_byte);
                     let end = cmp::min(end, wrapped.end_byte);
-                    (start < end).then_some((start - wrapped.start_byte, end - wrapped.start_byte))
+                    (start < end).then(|| (start - wrapped.start_byte, end - wrapped.start_byte))
                 })
                 .collect::<Vec<_>>();
             if !clipped.is_empty() {
@@ -2157,8 +2157,8 @@ impl<'a> TextArea<'a> {
         self.mask
     }
 
-    /// Set the style of cursor. By default, a cursor is rendered in the reversed color. Setting the same style as
-    /// cursor line hides a cursor.
+    /// Set the style of the cursor. By default, the cursor is rendered with reversed colors. Setting it to the same
+    /// style as the cursor line makes the cursor indistinguishable.
     /// ```
     /// use ratatui_core::style::{Style, Color};
     /// use ratatui_textarea::TextArea;
