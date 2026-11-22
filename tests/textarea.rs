@@ -1,6 +1,6 @@
 use ratatui_core::buffer::Buffer;
 use ratatui_core::layout::Rect;
-use ratatui_core::style::Style;
+use ratatui_core::style::{Modifier, Style};
 use ratatui_core::widgets::Widget as _;
 use ratatui_textarea::{CursorMove, DataCursor, TextArea, WrapMode};
 use std::cmp;
@@ -1760,6 +1760,81 @@ fn test_scroll_offset_tracks_the_viewport() {
     assert!(row > 0, "scrolling down must move the viewport, got {row}");
 }
 
+fn render_buffer(textarea: &TextArea<'_>, width: u16, height: u16) -> Buffer {
+    let area = Rect {
+        x: 0,
+        y: 0,
+        width,
+        height,
+    };
+    let mut buf = Buffer::empty(area);
+    textarea.render(area, &mut buf);
+    buf
+}
+
+fn row_symbols(buf: &Buffer, y: u16) -> Vec<&str> {
+    (0..buf.area.width).map(|x| buf[(x, y)].symbol()).collect()
+}
+
+fn cursor_cells(buf: &Buffer) -> Vec<(u16, u16)> {
+    let area = buf.area;
+    (0..area.height)
+        .flat_map(|y| (0..area.width).map(move |x| (x, y)))
+        .filter(|&pos| buf[pos].modifier.contains(Modifier::REVERSED))
+        .collect()
+}
+
+#[test]
+fn test_horizontal_scroll_blanks_a_wide_char_cut_by_the_left_edge() {
+    let mut textarea = TextArea::from(["日本語abc"]);
+    textarea.move_cursor(CursorMove::End);
+
+    // The viewport starts on the right half of 語. That half is drawn blank, so
+    // the rest of the row stays in its own columns and the cursor stays on screen.
+    let buf = render_buffer(&textarea, 5, 1);
+    assert_eq!(textarea.scroll_offset(), (0, 5));
+    assert_eq!(row_symbols(&buf, 0), [" ", "a", "b", "c", " "]);
+    assert_eq!(cursor_cells(&buf), [(4, 0)]);
+
+    textarea.insert_char('x');
+    let buf = render_buffer(&textarea, 5, 1);
+    assert_eq!(row_symbols(&buf, 0), ["a", "b", "c", "x", " "]);
+    assert_eq!(cursor_cells(&buf), [(4, 0)]);
+}
+
+#[test]
+fn test_horizontal_scroll_blanks_a_wide_char_cut_by_the_right_edge() {
+    let mut textarea = TextArea::from(["ab日本"]);
+    textarea.move_cursor(CursorMove::Jump(0, 1));
+
+    // 日 spans columns 2 and 3 but only column 2 is on screen, so it is drawn as a
+    // blank cell.
+    let buf = render_buffer(&textarea, 3, 1);
+    assert_eq!(textarea.scroll_offset(), (0, 0));
+    assert_eq!(row_symbols(&buf, 0), ["a", "b", " "]);
+    assert_eq!(cursor_cells(&buf), [(1, 0)]);
+
+    // Moving the cursor onto it scrolls the whole of it into view.
+    textarea.move_cursor(CursorMove::Forward);
+    let buf = render_buffer(&textarea, 3, 1);
+    assert_eq!(textarea.scroll_offset(), (0, 1));
+    assert_eq!(row_symbols(&buf, 0), ["b", "日", " "]);
+    assert_eq!(cursor_cells(&buf), [(1, 0)]);
+}
+
+#[test]
+fn test_horizontal_scroll_counts_halfwidth_sound_marks() {
+    // Each ｶﾞ is one grapheme two cells wide, as ratatui draws it, though unicode-width
+    // gives ﾞ no width. The viewport starts on the right half of the last one.
+    let mut textarea = TextArea::from(["ｶﾞｶﾞｶﾞabc"]);
+    textarea.move_cursor(CursorMove::End);
+
+    let buf = render_buffer(&textarea, 5, 1);
+    assert_eq!(textarea.scroll_offset(), (0, 5));
+    assert_eq!(row_symbols(&buf, 0), [" ", "a", "b", "c", " "]);
+    assert_eq!(cursor_cells(&buf), [(4, 0)]);
+}
+
 #[test]
 fn test_screen_to_data_maps_positions_and_clamps_outside_the_text() {
     let textarea = TextArea::from(["hello", "hi"]);
@@ -1937,4 +2012,101 @@ fn test_screen_to_data_composes_with_the_gutter_and_scroll_offset_for_wide_chars
     let row = usize::from(top_row);
     let col = 2 + usize::from(top_col);
     assert_eq!(textarea.screen_to_data(row, col), DataCursor(8, 1));
+}
+
+fn rendered_rows(textarea: &TextArea<'_>, width: u16, height: u16) -> Vec<String> {
+    let area = Rect {
+        x: 0,
+        y: 0,
+        width,
+        height,
+    };
+    let mut buf = Buffer::empty(area);
+    textarea.render(area, &mut buf);
+    (0..height)
+        .map(|y| (0..width).map(|x| buf[(x, y)].symbol()).collect())
+        .collect()
+}
+
+#[test]
+fn test_mask_measures_screen_positions_by_the_mask_not_the_text() {
+    // Ten wide chars are twenty cells of text but ten cells of mask. Scrolling and
+    // the cursor must follow the ten cells that are actually drawn, otherwise the
+    // viewport slides past the mask and the field goes blank, and leaks that the
+    // secret is made of wide chars.
+    let mut textarea = TextArea::from([JAPANESE]);
+    textarea.set_mask_char('*');
+    textarea.move_cursor(CursorMove::End);
+
+    assert_eq!(textarea.screen_cursor().col, JAPANESE.chars().count());
+
+    let rows = rendered_rows(&textarea, 4, 1);
+    assert_eq!(rows, ["*** "], "the last three mask chars and the cursor");
+    assert_eq!(textarea.scroll_offset(), (0, 7));
+    assert_eq!(textarea.screen_to_data(0, 8), DataCursor(0, 8));
+}
+
+#[test]
+fn test_mask_wraps_by_the_mask_width() {
+    let mut textarea = TextArea::from(["犬猫犬猫"]);
+    textarea.set_mask_char('*');
+    textarea.set_wrap_mode(WrapMode::Glyph);
+
+    let rows = rendered_rows(&textarea, 4, 2);
+    assert_eq!(rows, ["****", "    "]);
+}
+
+#[test]
+fn test_mask_takes_its_own_width() {
+    let mut textarea = TextArea::from(["abc"]);
+    textarea.set_mask_char('＊');
+    textarea.move_cursor(CursorMove::End);
+
+    assert_eq!(textarea.screen_cursor().col, 6);
+    let rows = rendered_rows(&textarea, 3, 1);
+    // A full-width mask char, the cell it spills into, then the cursor.
+    assert_eq!(rows, ["＊  "]);
+    assert_eq!(textarea.scroll_offset(), (0, 4));
+}
+
+#[test]
+fn test_mask_round_trips_every_position_and_clears() {
+    for mode in [
+        WrapMode::None,
+        WrapMode::Glyph,
+        WrapMode::Word,
+        WrapMode::WordOrGlyph,
+    ] {
+        let mut textarea = TextArea::from([JAPANESE, "a\tb", "混合 mixed"]);
+        textarea.set_wrap_mode(mode);
+        textarea.set_mask_char('＊');
+        rendered(&textarea, 16, 20);
+
+        assert_round_trips_every_position(&mut textarea, mode);
+    }
+
+    // Clearing the mask measures the text by its own widths again.
+    let mut textarea = TextArea::from([JAPANESE]);
+    textarea.set_mask_char('*');
+    textarea.move_cursor(CursorMove::End);
+    assert_eq!(textarea.screen_cursor().col, JAPANESE.chars().count());
+    textarea.clear_mask_char();
+    assert_eq!(textarea.screen_cursor().col, 2 * JAPANESE.chars().count());
+}
+
+#[test]
+fn test_halfwidth_sound_marks_take_a_cell() {
+    // Ratatui draws ﾞ and ﾟ in a cell of their own, though unicode-width gives them no width.
+    let mut textarea = TextArea::from(["ｶﾞﾊﾟ"]);
+    textarea.move_cursor(CursorMove::End);
+    assert_eq!(textarea.screen_cursor().col, 4);
+
+    let rows = rendered_rows(&textarea, 3, 1);
+    assert_eq!(textarea.scroll_offset(), (0, 2));
+    // ﾊﾟ is one grapheme two cells wide, then the cell it spills into, then the cursor.
+    assert_eq!(rows, ["ﾊﾟ  "]);
+
+    // A sound mark as the mask char is as wide as it is drawn.
+    textarea.set_mask_char('ﾞ');
+    assert_eq!(textarea.screen_cursor().col, 4);
 }
